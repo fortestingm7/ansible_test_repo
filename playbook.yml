@@ -1,0 +1,6 @@
+
+- name: Main Playbook
+  hosts: windows_servers
+  become: yes
+  roles:
+    - testrole1

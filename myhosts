@@ -1,0 +1,6 @@
+
+[web_servers]
+127.0.0.1 ansible_connection=local deprecation_warnings=false
+
+[azure_windows_server]
+azure_vm ansible_host=20.205.98.166  ansible_port=5986 ansible_user=azadmin ansible_password=LVFQagPq3BvEWySDUcwfnbKsu2mkTj7ARG ansible_connection=winrm ansible_winrm_server_cert_validation=ignore
