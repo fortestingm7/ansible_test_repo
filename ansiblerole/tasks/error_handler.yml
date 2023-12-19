@@ -1,0 +1,4 @@
+
+- name: Handle errors at the most outer layer
+  debug:
+    msg: "An error occurred in the role"

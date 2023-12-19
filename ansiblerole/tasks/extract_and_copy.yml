@@ -1,0 +1,42 @@
+- name: Copy these file \\x.x.x.x\fovadata to \\x.x.x.x\E:\CreateCheckFile\GCMS
+  ansible.builtin.synchronize:
+    src: "{{ fovadata_source_path }}"
+    dest: "{{ create_check_file_path }}"
+  delegate_to: localhost
+  become: yes
+  when: not zip_file_stats.stat.exists or extraction_result.stat.mtime.date != current_date
+
+- name: Display message after copying files
+  debug:
+    msg: "Files copied successfully from {{ fovadata_source_path }} to {{ create_check_file_path }}"
+  when: not zip_file_stats.stat.exists or extraction_result.stat.mtime.date != current_date
+
+- name: Delete files after copying
+  ansible.builtin.file:
+    path: "{{ fovadata_source_path }}"
+    state: absent
+  delegate_to: localhost
+  become: yes
+  when: not zip_file_stats.stat.exists or extraction_result.stat.mtime.date != current_date
+
+- name: Wait until files disappear from destination
+  ansible.builtin.wait_for:
+    path: "{{ fovadata_source_path }}"
+    state: absent
+    timeout: 30
+  delegate_to: localhost
+  become: yes
+  when: not zip_file_stats.stat.exists or extraction_result.stat.mtime.date != current_date
+
+- name: Copy file from CreateCheckFile\out\GCMS to gtp\icbct\GCMS
+  ansible.builtin.copy:
+    src: "{{ create_check_file_path }}/IA-{{ current_date }}-51-1.zip"
+    dest: "{{ destination_path }}"
+  delegate_to: localhost
+  become: yes
+  when: not zip_file_stats.stat.exists or extraction_result.stat.mtime.date != current_date
+
+- name: Display message after copying file
+  debug:
+    msg: "File IA-{{ current_date }}-51-1.zip copied successfully\nFrom: {{ create_check_file_path }}/out/GCMS\nTo: {{ destination_path }}"
+  when: not zip_file_stats.stat.exists or extraction_result.stat.mtime.date != current_date

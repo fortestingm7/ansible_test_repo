@@ -1,0 +1,5 @@
+# tasks/main.yml
+
+---
+- include_tasks: tasks/check_zip_file.yml
+- include_tasks: tasks/error_handler.yml

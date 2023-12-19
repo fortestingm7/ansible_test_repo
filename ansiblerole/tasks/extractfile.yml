@@ -1,0 +1,35 @@
+  - name: Perform steps if file does not exist or date is incorrect
+    block:
+        - name: Copy files with the current date modification from \\x.x.x.x\fovadata
+          ansible.builtin.synchronize:
+            src: "{{ fovadata_source_path }}"
+            dest: "{{ create_check_file_path }}"
+          delegate_to: localhost
+          become: yes
+          when: not zip_file_stats.stat.exists or extraction_result.stat.mtime.date != current_date
+      
+        - name: Wait until files disappear from destination
+          ansible.builtin.wait_for:
+            path: "{{ fovadata_source_path }}"
+            state: absent
+            timeout: 30
+          delegate_to: localhost
+          become: yes
+          when: not zip_file_stats.stat.exists or extraction_result.stat.mtime.date != current_date
+
+        - name: Copy file from CreateCheckFile\out\GCMS to gtp\icbct\GCMS
+          ansible.builtin.copy:
+            src: "{{ create_check_file_path }}/IA-{{ current_date }}-51-1.zip"
+            dest: "{{ destination_path }}"
+          delegate_to: localhost
+          become: yes
+          when: not zip_file_stats.stat.exists or extraction_result.stat.mtime.date != current_date
+
+
+
+
+
+
+
+
+
