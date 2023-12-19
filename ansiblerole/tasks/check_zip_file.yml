@@ -1,0 +1,145 @@
+  
+  - name: Check zip file folder 
+    win_shell: |
+        if (Test-Path -Path "{{zip_file_path}}") {
+          Write-Output "Folder already exists"
+        } else {
+          Write-Output "Folder does not exist"
+        }
+    register: zipfilefolder_check_result
+
+  - name: Create zip file folder if it doesn't exist
+    win_shell: |
+        New-Item -Path "{{zip_file_path}}" -ItemType Directory
+    when: "'Folder does not exist' in zipfilefolder_check_result.stdout_lines"
+
+  - name: Check fovadata folder 
+    win_shell: |
+        if (Test-Path -Path "{{fovadata_source_path}}") {
+          Write-Output "Folder already exists"
+        } else {
+          Write-Output "Folder does not exist"
+        }
+    register: fovadatafolder_check_result
+
+  - name: Create fovadata folder if it doesn't exist
+    win_shell: |
+        New-Item -Path "{{fovadata_source_path}}" -ItemType Directory
+    when: "'Folder does not exist' in fovadatafolder_check_result.stdout_lines"
+  
+  - name: Check CreateCheckFile folder 
+    win_shell: |
+        if (Test-Path -Path "{{create_check_file_path}}") {
+          Write-Output "Folder already exists"
+        } else {
+          Write-Output "Folder does not exist"
+        }
+    register: folder_check_result
+
+  - name: Create CreateCheckFile folder if it doesn't exist
+    win_shell: |
+        New-Item -Path "{{create_check_file_path}}" -ItemType Directory
+    when: "'Folder does not exist' in folder_check_result.stdout_lines"
+
+
+ 
+
+- name: Handle errors at the most outer layer
+  debug:
+    msg: "An error occurred in the role"
+
+- name: Check if file exists in \\x.x.x.x\fovadata
+  win_stat:
+    path: '{{fovadata_source_path}}\IA-{{current_date}}-51-1.zip'
+  register: file_exists
+
+- name: Display message if file does not exist
+  debug:
+    msg: "File does not exist at {{fovadata_source_path}}."
+  when: not file_exists.stat.exists
+
+- name: Copy files from \\x.x.x.x\fovadata to \\x.x.x.x\D:\CreateCheckFile\GCMS
+  win_shell: |
+    Copy-Item -Path '{{fovadata_source_path}}\IA-{{current_date}}-51-1.zip' -Destination '{{create_check_file_path}}' -Force  
+  register: copy_result
+  when: file_exists.stat.exists
+
+- name: Display message after copying files
+  debug:
+    msg: "Files copied successfully from {{fovadata_source_path}}\\IA-{{current_date}}-51-1.zip to {{create_check_file_path}}"
+  when: copy_result.changed
+
+- name: Delete files after copying
+  win_shell: Remove-Item -Path '{{fovadata_source_path}}\IA-{{current_date}}-51-1.zip' -Force  
+  when: copy_result.changed
+
+- name: Wait until files disappear from destination
+  win_shell: Wait-Event -Timeout 30  
+  when: copy_result.changed
+
+- name: Copy file from CreateCheckFile\out\GCMS to gtp\icbct\GCMS
+  win_shell: 
+    Copy-Item -Path '{{create_check_file_path}}\IA-{{current_date}}-51-1.zip' -Destination '{{destination_path}}' -Force 
+  register: copy_file_result
+  when: copy_result.changed
+
+- name: Display message after copying file
+  debug:
+    msg: "File IA-{{current_date}}-51-1.zip copied successfully From: {{create_check_file_path}} To: {{destination_path}}"
+  when: copy_file_result.changed
+
+---
+#- include_tasks: tasks/create_directory.yml
+- include_tasks: tasks/check_zip_file.yml
+
+
+- name: Get current date in YYYYMMDD format 
+  win_shell: Get-Date -Format yyyyMMdd
+  register: current_date_result
+
+- name: Set the fact with the current date
+  set_fact:
+      current_date: "{{current_date_result.stdout | trim}}"
+
+- name: Check file exists
+  win_shell: Test-Path -Path '{{zip_file_path}}\IA-{{current_date}}-51-1.zip'
+  register: zip_file_stats
+
+- name: Debug file exists result
+  debug:
+    var: zip_file_stats
+
+- name: Display information if ZIP file exists with the current date
+  debug:
+    msg: |     
+      Folder:{{zip_file_path}}
+      File: IA-{{current_date}}-51-1.zip
+  when: zip_file_stats.stdout_lines | first == "True"
+
+- name: Extract zip file and check specific file
+  win_shell: Expand-Archive -Path '{{zip_file_path}}\IA-{{current_date}}-51-1.zip' -DestinationPath '{{zip_file_path}}' -Force
+  register: extraction_result
+  when: zip_file_stats.stdout_lines | first == "True"
+  
+- name: Check if the specific file exists after extraction
+  win_shell: Test-Path -Path '{{extracted_file_path}}\IA-{{current_date}}-51-1.chk'
+  register: extracted_file_stats
+  ignore_errors: true
+
+- name: Display message if file is exist
+  debug:
+    msg: "File exists: IA-{{current_date}}-51-1.chk"
+  when: "'True' in extracted_file_stats.stdout_lines[0]"
+
+- name: Display message if file does not exist
+  debug:
+    msg: "File does not exist: IA-{{current_date}}-51-1.chk"
+  when: "'False' in extracted_file_stats.stdout_lines[0]"
+
+- name: Display message if ZIP file does not exist
+  block:
+    - debug:
+        msg: "The file {{zip_file_path}}\\IA-{{current_date}}-51-1.zip does not exist"
+    - include_tasks: extract_and_copy.yml
+  when: zip_file_stats.stdout_lines | first != "True"
+
